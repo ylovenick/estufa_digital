@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<!-- 
+  A declaração DOCTYPE informa ao navegador que este é um arquivo HTML5 moderno.
+  A tag <html> com lang="pt-br" ajuda os navegadores e leitores de tela a entenderem o idioma.
+-->
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <!-- Esta meta tag é CRUCIAL para funcionar bem em celulares (responsividade) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Estufa Digital</title>
+
+    <!-- 
+      --- ÁREA DE ESTILOS (CSS) ---
+      Aqui definimos a aparência de tudo. Colocamos direto no HTML para evitar
+      problemas de cache onde o navegador carrega um arquivo de estilo antigo.
+    -->
+    <style>
+        /* 1. CONFIGURAÇÕES GERAIS */
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif; /* Fonte moderna e limpa */
+            background-color: #ecf0f1; /* Fundo cinza claro, agradável aos olhos */
+            margin: 0;
+            padding: 20px;
+            /* Usamos Flexbox para centralizar tudo na tela verticalmente */
+            display: flex; 
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { color: #2c3e50; margin-bottom: 20px; }
+
+        /* 2. CAIXA DE ALARME (VERMELHA) */
+        .alarm-box {
+            background-color: #e74c3c; /* Vermelho alerta */
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            /* IMPORTANTE: display: none faz ela começar invisível. 
+               O JavaScript vai mudar isso para 'flex' se houver erro. */
+            display: none; 
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* Sombra suave */
+            animation: pulse 1.5s infinite; /* Chama a animação definida abaixo */
+        }
+
+        .alarm-text { font-weight: bold; font-size: 1.1em; }
+        
+        /* Botão dentro do alarme */
+        .btn-reset-alarm {
+            background-color: white; 
+            color: #c0392b; 
+            border: none;
+            padding: 8px 15px; 
+            border-radius: 5px; 
+            font-weight: bold; 
+            cursor: pointer; /* Mãozinha ao passar o mouse */
+        }
+        .btn-reset-alarm:hover { background-color: #fce4e4; }
+
+        /* Animação de "Pulsar" para chamar atenção no erro */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); } /* Aumenta levemente */
+            100% { transform: scale(1); }
+        }
+
+        /* 3. CONTAINER PRINCIPAL (CAIXA BRANCA) */
+        .painel-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            width: 95%;
+            max-width: 1200px;
+            /* Organiza as seções (Leituras e Controles) uma embaixo da outra */
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        h2 {
+            text-align: center; color: #7f8c8d;
+            border-bottom: 2px solid #eee; padding-bottom: 10px; margin: 0;
+        }
+
+        /* 4. ÁREA DOS VELOCÍMETROS (LADO A LADO) */
+        .area-leituras {
+            display: flex;
+            flex-direction: row; /* Garante que fiquem na horizontal */
+            justify-content: space-around; /* Espalha eles igualmente */
+            align-items: center;
+            flex-wrap: nowrap; /* PROÍBE que um caia para a linha de baixo */
+            gap: 10px;
+            width: 100%;
+            overflow-x: auto; /* Se a tela for minúscula, cria barra de rolagem em vez de quebrar */
+            padding-bottom: 5px;
+        }
+
+        .gauge-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 200px; /* Garante um tamanho mínimo legível */
+        }
+
+        .gauge-title { font-weight: bold; color: #34495e; margin-bottom: 5px; }
+        
+        /* Tamanho fixo para o desenho SVG garantir que não distorça */
+        .gauge-svg { width: 220px; height: 150px; } 
+
+        /* Classe para animar o ponteiro girando */
+        .needle {
+            transform-origin: 100px 100px; /* O ponto de giro é exatamente o centro do arco */
+            transition: transform 0.5s ease; /* Faz o movimento demorar 0.5s (suave) */
+        }
+
+        .gauge-value-text {
+            font-family: monospace; /* Fonte estilo código para números */
+            font-weight: bold;
+            font-size: 28px;
+            fill: #000; /* Garante cor preta */
+        }
+
+        /* 5. ÁREA DOS CONTROLES (BOTÕES) */
+        .area-controles {
+            display: flex; 
+            justify-content: center; 
+            gap: 20px; 
+            flex-wrap: wrap; /* Permite quebrar linha se faltar espaço */
+        }
+
+        .controle-item {
+            background: #f9f9f9; 
+            padding: 15px; 
+            border-radius: 10px;
+            border: 1px solid #ddd; 
+            width: 150px; 
+            text-align: center;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+        }
+
+        button.btn-act {
+            background-color: #27ae60; 
+            color: white; 
+            border: none;
+            padding: 10px; 
+            width: 100%; 
+            border-radius: 5px; 
+            cursor: pointer;
+            margin: 10px 0;
+            transition: background 0.3s; /* Suaviza a mudança de cor ao passar o mouse */
+        }
+        button.btn-act:hover { background-color: #2ecc71; }
+
+        /* Badge de Status (ON/OFF) */
+        .status-badge {
+            padding: 5px 15px; 
+            border-radius: 15px; 
+            color: white; 
+            font-weight: bold; 
+            display: block; 
+            min-width: 50px;
+        }
+        .on { background-color: #27ae60; } /* Verde */
+        .off { background-color: #c0392b; } /* Vermelho */
+
+        .auto-mode { 
+            text-align: center; 
+            padding-top: 15px; 
+            border-top: 1px dashed #ccc; 
+        }
+        .auto-mode label { font-weight: bold; font-size: 1.2em; cursor: pointer; }
+        .auto-mode input { transform: scale(1.5); margin-right: 8px; }
+
+    </style>
+</head>
+<body>
+
+    <h1>🌿 Painel da Estufa Digital</h1>
+
+    <!-- 
+      CAIXA DE ALARME 
+      Esta div fica oculta (display: none) até o JavaScript detectar um erro.
+    -->
+    <div id="box_alarm" class="alarm-box">
+        <span class="alarm-text">🚨 <span id="msg_alarm">Alerta!</span></span>
+        <button id="btn_reset_alarm" class="btn-reset-alarm">Limpar</button>
+    </div>
+
+    <div class="painel-container">
+        
+        <!-- SEÇÃO 1: LEITURAS (Velocímetros) -->
+        <div>
+            <h2>Leituras</h2>
+            <div class="area-leituras">
+                
+                <!-- MEDIDOR DE TEMPERATURA -->
+                <div class="gauge-wrapper">
+                    <div class="gauge-title">Temperatura</div>
+                    <!-- SVG: Desenho vetorial matemático. Não perde qualidade no zoom. -->
+                    <svg class="gauge-svg" viewBox="0 0 200 150">
+                        <!-- Arco Cinza (Fundo) -->
+                        <path d="M20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#eee" stroke-width="25" stroke-linecap="round"/>
+                        <!-- Arco Vermelho Transparente (Decoração) -->
+                        <path d="M20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e74c3c" stroke-width="25" stroke-linecap="round" opacity="0.2"/>
+                        
+                        <!-- Grupo do Ponteiro (Agulha + Círculo central) -->
+                        <g class="needle-group">
+                            <!-- A linha do ponteiro -->
+                            <line id="needle_temp" class="needle" x1="100" y1="100" x2="100" y2="30" stroke="#333" stroke-width="5" stroke-linecap="round" />
+                            <!-- O círculo no centro -->
+                            <circle cx="100" cy="100" r="10" fill="#333"/>
+                        </g>
+                        <!-- Texto do Valor Numérico -->
+                        <text id="text_temp" x="100" y="135" text-anchor="middle" font-size="28" font-weight="bold" fill="black">--°C</text>
+                    </svg>
+                </div>
+
+                <!-- MEDIDOR DE UMIDADE DO AR -->
+                <div class="gauge-wrapper">
+                    <div class="gauge-title">Umidade Ar</div>
+                    <svg class="gauge-svg" viewBox="0 0 200 150">
+                        <path d="M20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#eee" stroke-width="25" stroke-linecap="round"/>
+                        <path d="M20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#3498db" stroke-width="25" stroke-linecap="round" opacity="0.2"/>
+                        <g class="needle-group">
+                            <line id="needle_hum" class="needle" x1="100" y1="100" x2="100" y2="30" stroke="#333" stroke-width="5" stroke-linecap="round" />
+                            <circle cx="100" cy="100" r="10" fill="#333"/>
+                        </g>
+                        <text id="text_hum" x="100" y="135" text-anchor="middle" font-size="28" font-weight="bold" fill="black">--%</text>
+                    </svg>
+                </div>
+
+                <!-- MEDIDOR DE UMIDADE DO SOLO -->
+                <div class="gauge-wrapper">
+                    <div class="gauge-title">Umidade Solo</div>
+                    <svg class="gauge-svg" viewBox="0 0 200 150">
+                        <path d="M20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#eee" stroke-width="25" stroke-linecap="round"/>
+                        <path d="M20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#27ae60" stroke-width="25" stroke-linecap="round" opacity="0.2"/>
+                        <g class="needle-group">
+                            <line id="needle_soil" class="needle" x1="100" y1="100" x2="100" y2="30" stroke="#333" stroke-width="5" stroke-linecap="round" />
+                            <circle cx="100" cy="100" r="10" fill="#333"/>
+                        </g>
+                        <text id="text_soil" x="100" y="135" text-anchor="middle" font-size="28" font-weight="bold" fill="black">--%</text>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO 2: CONTROLES (Botões) -->
+        <div>
+            <h2>Controles</h2>
+            <div class="area-controles">
+                <div class="controle-item">
+                    <div class="gauge-title">Aquecedor</div>
+                    <button id="btn_aq" class="btn-act">Ligar/Desligar</button>
+                    <span id="st_aq" class="status-badge off">OFF</span>
+                </div>
+                <div class="controle-item">
+                    <div class="gauge-title">Ventilador</div>
+                    <button id="btn_vent" class="btn-act">Ligar/Desligar</button>
+                    <span id="st_vent" class="status-badge off">OFF</span>
+                </div>
+                <div class="controle-item">
+                    <div class="gauge-title">Bomba</div>
+                    <button id="btn_pump" class="btn-act">Ligar/Desligar</button>
+                    <span id="st_pump" class="status-badge off">OFF</span>
+                </div>
+            </div>
+            <div class="auto-mode">
+                <label><input type="checkbox" id="chk_auto" checked> Modo Automático</label>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 
+      --- JAVASCRIPT ---
+      Aqui está a lógica que faz a página "ganhar vida".
+      O JavaScript conecta o HTML ao servidor Python.
+    -->
+    <script>
+        // 1. REFERÊNCIAS (MAPEAMENTO)
+        // Buscamos os elementos do HTML pelo ID para poder controlá-los via código.
+        const needleTemp = document.getElementById('needle_temp'); // Ponteiro Temp
+        const textTemp = document.getElementById('text_temp');     // Texto Temp
+        
+        const needleHum = document.getElementById('needle_hum');   // Ponteiro Ar
+        const textHum = document.getElementById('text_hum');       // Texto Ar
+        
+        const needleSoil = document.getElementById('needle_soil'); // Ponteiro Solo
+        const textSoil = document.getElementById('text_soil');     // Texto Solo
+
+        const btnAq = document.getElementById('btn_aq');           // Botão Aquecedor
+        const stAq = document.getElementById('st_aq');             // Badge ON/OFF Aquecedor
+        const btnVent = document.getElementById('btn_vent');
+        const stVent = document.getElementById('st_vent');
+        const btnPump = document.getElementById('btn_pump');
+        const stPump = document.getElementById('st_pump');
+        const chkAuto = document.getElementById('chk_auto');
+
+        // Elementos do Alarme
+        const boxAlarm = document.getElementById('box_alarm');
+        const msgAlarm = document.getElementById('msg_alarm');
+        const btnResetAlarm = document.getElementById('btn_reset_alarm');
+
+        // 2. FUNÇÕES VISUAIS (ATUALIZAR TELA)
+        
+        // Função que calcula a rotação do ponteiro baseado no valor
+        function setGauge(needle, textEl, value, min, max, unit) {
+            // Segurança: Se o valor vier vazio, não faz nada para não dar erro
+            if(value === undefined || value === null) return; 
+
+            // Atualiza o texto numérico (ex: "25.5 °C")
+            textEl.textContent = value.toFixed(1) + unit;
+            
+            // MATEMÁTICA DO PONTEIRO:
+            // 1. Garante que o valor está dentro dos limites (clamp)
+            let val = Math.max(min, Math.min(max, value));
+            
+            // 2. Calcula a porcentagem (0.0 a 1.0)
+            let pct = (val - min) / (max - min);
+            
+            // 3. Converte para graus. O velocímetro vai de -90° (esq) a +90° (dir). Total 180°.
+            let angle = (pct * 180) - 90;
+            
+            // 4. Aplica a rotação CSS no elemento
+            if(needle) needle.style.transform = `rotate(${angle}deg)`;
+        }
+
+        // Função que muda a cor e texto das badges (ON/OFF)
+        function setStatus(el, isOn) {
+            if(isOn) { 
+                el.textContent = "ON"; 
+                el.className = "status-badge on"; // Fica Verde
+            } else { 
+                el.textContent = "OFF"; 
+                el.className = "status-badge off"; // Fica Vermelho
+            }
+        }
+
+        // 3. COMUNICAÇÃO COM O SERVIDOR (PYTHON)
+        async function updateData() {
+            try {
+                // Pede os dados para o Python (Rota '/dados')
+                const res = await fetch('/dados');
+                
+                // Se der erro na conexão, para por aqui
+                if(!res.ok) return;
+                
+                // Converte a resposta para JSON (Dicionário de dados)
+                const data = await res.json();
+
+                // Atualiza os 3 Velocímetros com os dados novos
+                setGauge(needleTemp, textTemp, data.temperatura, 0, 50, "°C");
+                setGauge(needleHum, textHum, data.umidade, 0, 100, "%");
+                setGauge(needleSoil, textSoil, data.soil_moisture, 0, 100, "%");
+
+                // Atualiza os Badges de Status
+                setStatus(stAq, data.aquecedor);
+                setStatus(stVent, data.ventilador);
+                setStatus(stPump, data.pump);
+                
+                // Atualiza o checkbox do Modo Automático
+                if(chkAuto) chkAuto.checked = data.modo_auto;
+
+                // LÓGICA DO ALARME
+                // Se vier uma mensagem de alarme do Python...
+                if (data.alarm && data.alarm !== "") {
+                    msgAlarm.textContent = data.alarm;
+                    boxAlarm.style.display = "flex"; // Torna a caixa visível
+                } else {
+                    boxAlarm.style.display = "none"; // Esconde a caixa
+                }
+
+            } catch (err) {
+                console.error("Erro ao buscar dados:", err);
+            }
+        }
+
+        // 4. ENVIAR COMANDOS (QUANDO O USUÁRIO CLICA)
+        async function sendCmd(payload) {
+            try {
+                // Envia um POST para o Python com o que mudou (ex: {pump: true})
+                await fetch('/comando', {
+                    method: 'POST', 
+                    body: JSON.stringify(payload),
+                    headers: {'Content-Type': 'application/json'}
+                });
+                // Pede atualização imediata para a tela não ficar lenta
+                updateData();
+            } catch(e) { console.error(e); }
+        }
+
+        // 5. EVENTOS DE CLIQUE
+        // Define o que acontece quando clica em cada botão
+        if(btnAq) btnAq.onclick = () => sendCmd({aquecedor: !(stAq.innerText==="ON"), modo_auto: false});
+        if(btnVent) btnVent.onclick = () => sendCmd({ventilador: !(stVent.innerText==="ON"), modo_auto: false});
+        if(btnPump) btnPump.onclick = () => sendCmd({pump: !(stPump.innerText==="ON"), modo_auto: false});
+        
+        // Quando muda o checkbox Auto
+        if(chkAuto) chkAuto.onchange = () => sendCmd({modo_auto: chkAuto.checked});
+        
+        // Botão de Limpar Alarme
+        if(btnResetAlarm) btnResetAlarm.onclick = () => {
+            sendCmd({reset_alarm: true});
+            boxAlarm.style.display = "none"; // Esconde na hora para dar feedback rápido
+        };
+
+        // 6. LOOP INFINITO
+        // Roda a função updateData a cada 1000ms (1 segundo) para manter tudo atualizado.
+        setInterval(updateData, 1000);
+        
+        // Roda uma vez logo que abre a página
+        updateData(); 
+
+    </script>
+</body>
+</html>
