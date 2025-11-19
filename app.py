@@ -3,7 +3,7 @@ from flask import Flask, jsonify, request, render_template, send_file
 import threading, time, random, csv, os
 from datetime import datetime
 
-# --- 1. CONFIGURAÇÃO DO SERVIDOR WEB (FLASK) ----
+# --- 1. CONFIGURAÇÃO DO SERVIDOR WEB (FLASK) ---
 # Aqui iniciamos o Flask, que é o "cérebro" do site.
 app = Flask(__name__)
 
